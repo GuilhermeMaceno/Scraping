@@ -24,8 +24,7 @@ class Scrap_Viva():
         
         self.link_inicial = link_inicial
         self.link_externo = link_inicial
-        elements = self.driver.find_elements(By.CSS_SELECTOR, "a[href^='https://www.vivareal.com.br/imovel/galpao']")
-        self.links = [el.get_attribute("href") for el in elements]
+        self.links = []
         self.items = {
             'ID': [],
             'Aluguel': [],
@@ -86,13 +85,7 @@ class Scrap_Viva():
     EC.presence_of_all_elements_located(
         (By.CSS_SELECTOR, "a[href^='https://www.vivareal.com.br/imovel/galpao']")
     )
-)        #self.driver.execute_script("window.scrollTo(8, document.body.scrollHeight);") #scrollar para baixo para carregar os imóveis
-        #wait = WebDriverWait(self.driver, 10)
-        #wait.until(
-        #EC.presence_of_element_located(
-        #(By.CLASS_NAME, "olx-core-carousel__viewport h-full")
-    #)
-#)
+)        
         # pega todos os links dentro dessa seção
         elements = self.driver.find_elements(By.CSS_SELECTOR, "a[href^='https://www.vivareal.com.br/imovel/galpao']")
         self.links = [el.get_attribute("href") for el in elements]
@@ -102,8 +95,6 @@ class Scrap_Viva():
     def segue_links(self):
         for page_num in range(1, 50):
             self.get_links()
-            self.link_externo = self.link_inicial + '&pagina={}'.format(page_num)
-            self.request(self.link_externo)
             time.sleep(5)
             for link in self.links:
                 time.sleep(5)
@@ -113,7 +104,8 @@ class Scrap_Viva():
 )
                 self.search()
                 self.show()
+            self.link_externo = self.link_inicial + '&pagina={}'.format(page_num)
+            self.request(self.link_externo)
                 
 viva = Scrap_Viva(link_inicial)
-viva.get_links()
 viva.segue_links()
