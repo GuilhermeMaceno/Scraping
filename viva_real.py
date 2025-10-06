@@ -9,15 +9,18 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.edge.service import Service
+import pandas as pd
+import openpyxl
 
 link_exemplo = 'https://www.vivareal.com.br/imovel/galpao-deposito-armazem-vila-ema-zona-leste-sao-paulo-com-garagem-300m2-aluguel-RS6000-id-2840728067/?source=ranking%2Crp'
-link_inicial = 'https://www.vivareal.com.br/aluguel/sp/guarulhos/galpao_comercial/?transacao=aluguel&onde=%2CS%C3%A3o+Paulo%2CGuarulhos%2C%2C%2C%2C%2Ccity%2CBR%3ESao+Paulo%3ENULL%3EGuarulhos%2C-23.454314%2C-46.533664%2C&tipos=galpao_comercial'
+link_inicial = 'https://www.vivareal.com.br/aluguel/sp/guarulhos/galpao_comercial/?transacao=aluguel&onde=%2CS%C3%A3o+Paulo%2CGuarulhos%2C%2C%2C%2C%2Ccity%2CBR%3ESao+Paulo%3ENULL%3EGuarulhos%2C-23.454314%2C-46.533664%2C&tipos=galpao_comercial&areaMinima=500'
 
 class Scrap_Viva():
     def __init__(self, link_inicial):
         driver_path = r"C:\Users\macen\Downloads\edgedriver_win64\msedgedriver.exe"
         self.service = Service(driver_path)
         self.options = Options()
+        self.options.add_experimental_option("excludeSwitches", ["enable-logging"]) #Chato pra caralho
         self.driver = webdriver.Edge(service=self.service, options = self.options)
         self.driver.get(link_inicial)
         self.bs = BeautifulSoup(self.driver.page_source, 'html.parser')
@@ -25,18 +28,11 @@ class Scrap_Viva():
         self.link_inicial = link_inicial
         self.link_externo = link_inicial
         self.links = []
-        self.items = {
-            'ID': [],
-            'Aluguel': [],
-            'Condominios': [],
-            'Metros': [],
-            'Local': []
-        }
+        self.df = pd.DataFrame(columns=['ID', 'Aluguel', 'Condominios', 'Metros', 'Local', 'Link'])
 
     def request(self, link):
         driver_path = r"C:\Users\macen\Downloads\edgedriver_win64\msedgedriver.exe"
         time.sleep(10)
-        #self.driver.execute_script("window.scrollTo(1, document.body.scrollHeight);") #scrollar para baixo para carregar os imóveis
         total_height = self.driver.execute_script("return document.body.scrollHeight")
         half_height = total_height / 2
         self.driver.execute_script(f"window.scrollTo(0, {half_height});")
@@ -65,20 +61,23 @@ class Scrap_Viva():
         id_tag = self.bs.find('p', {'data-cy': 'ldp-propertyCodes-txt'})
         id_ = id_tag.text if id_tag else None
 
-        self.items['ID'].append(id_)
-        self.items['Aluguel'].append(aluguel)
-        self.items['Condominios'].append(condominio)
-        self.items['Metros'].append(metros)
-        self.items['Local'].append(local)
+        link_atual = self.driver.current_url 
+
+        dados = {
+        'ID': id_,
+        'Aluguel': aluguel,
+        'Condominios': condominio,
+        'Metros': metros,
+        'Local': local,
+        'Link': link_atual
+    }
+
+        # adiciona no DataFrame
+        self.df = pd.concat([self.df, pd.DataFrame([dados])], ignore_index=True)
+        self.df.to_excel("imoveis_vivareal.xlsx", index=False, engine="openpyxl")
 
     def show(self):
-        for i in range(len(self.items['ID'])):
-            print(f"ID: {self.items['ID'][i]}")
-            print(f"Aluguel: {self.items['Aluguel'][i]}")
-            print(f"Condomínio: {self.items['Condominios'][i]}")
-            print(f"Metros: {self.items['Metros'][i]}")
-            print(f"Local: {self.items['Local'][i]}")
-            print("-" * 30)
+        print(self.df.tail(1))
 
     def get_links(self):
         WebDriverWait(self.driver, 10).until(
