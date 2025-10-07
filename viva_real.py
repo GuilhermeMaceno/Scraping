@@ -13,8 +13,7 @@ import pandas as pd
 import openpyxl
 
 link_exemplo = 'https://www.vivareal.com.br/imovel/galpao-deposito-armazem-vila-ema-zona-leste-sao-paulo-com-garagem-300m2-aluguel-RS6000-id-2840728067/?source=ranking%2Crp'
-link_inicial = 'https://www.vivareal.com.br/aluguel/sp/guarulhos/galpao_comercial/?transacao=aluguel&onde=%2CS%C3%A3o+Paulo%2CGuarulhos%2C%2C%2C%2C%2Ccity%2CBR%3ESao+Paulo%3ENULL%3EGuarulhos%2C-23.454314%2C-46.533664%2C&tipos=galpao_comercial&areaMinima=500'
-
+link_inicial = r'https://www.vivareal.com.br/aluguel/sp/sao-paulo/zona-oeste/barra-funda/galpao_comercial/?transacao=aluguel&onde=%2CS%C3%A3o+Paulo%2CS%C3%A3o+Paulo%2CZona+Oeste%2CBarra+Funda%2C%2C%2Cneighborhood%2CBR%3ESao+Paulo%3ENULL%3ESao+Paulo%3EZona+Oeste%3EBarra+Funda%2C-23.522342%2C-46.661303%2C&tipos=galpao_comercial&areaMinima=1500'
 class Scrap_Viva():
     def __init__(self, link_inicial):
         driver_path = r"C:\Users\macen\Downloads\edgedriver_win64\msedgedriver.exe"
@@ -28,11 +27,12 @@ class Scrap_Viva():
         self.link_inicial = link_inicial
         self.link_externo = link_inicial
         self.links = []
-        self.df = pd.DataFrame(columns=['ID', 'Aluguel', 'Condominios', 'Metros', 'Local', 'Link'])
+        self.vistos = set()
+        self.df = pd.DataFrame(columns=['ID', 'Aluguel', 'Condominios', 'Metros', 'Local', 'Link', 'Atualização'])
 
     def request(self, link):
         driver_path = r"C:\Users\macen\Downloads\edgedriver_win64\msedgedriver.exe"
-        time.sleep(10)
+        time.sleep(5)
         total_height = self.driver.execute_script("return document.body.scrollHeight")
         half_height = total_height / 2
         self.driver.execute_script(f"window.scrollTo(0, {half_height});")
@@ -61,6 +61,9 @@ class Scrap_Viva():
         id_tag = self.bs.find('p', {'data-cy': 'ldp-propertyCodes-txt'})
         id_ = id_tag.text if id_tag else None
 
+        atualização_tag = self.bs.find('span', {'data-testid': 'listing-created-date'})
+        atualização = atualização_tag.text if atualização_tag else None
+
         link_atual = self.driver.current_url 
 
         dados = {
@@ -69,12 +72,13 @@ class Scrap_Viva():
         'Condominios': condominio,
         'Metros': metros,
         'Local': local,
-        'Link': link_atual
+        'Link': link_atual,
+        'Atualização': atualização
     }
 
         # adiciona no DataFrame
         self.df = pd.concat([self.df, pd.DataFrame([dados])], ignore_index=True)
-        self.df.to_excel("imoveis_vivareal.xlsx", index=False, engine="openpyxl")
+        self.df.to_excel("imoveis_barra_funda_vivareal_2.xlsx", index=False, engine="openpyxl")
 
     def show(self):
         print(self.df.tail(1))
@@ -88,23 +92,23 @@ class Scrap_Viva():
         # pega todos os links dentro dessa seção
         elements = self.driver.find_elements(By.CSS_SELECTOR, "a[href^='https://www.vivareal.com.br/imovel/galpao']")
         self.links = [el.get_attribute("href") for el in elements]
-
         print(self.links)
 
     def segue_links(self):
-        for page_num in range(1, 50):
+        for page_num in range(1, 99):
+            print(f'Página {page_num}')
             self.get_links()
             time.sleep(5)
             for link in self.links:
-                time.sleep(5)
-                self.request(link)
-                WebDriverWait(self.driver, 10).until(
-    EC.presence_of_element_located((By.CLASS_NAME, "value-item__value"))
-)
-                self.search()
-                self.show()
+                if link not in self.vistos:
+                    time.sleep(4)
+                    self.request(link)
+                    WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "value-item__value")))
+                    self.search()
+                    self.show()
             self.link_externo = self.link_inicial + '&pagina={}'.format(page_num)
             self.request(self.link_externo)
+            self.vistos.update(self.links)
                 
 viva = Scrap_Viva(link_inicial)
 viva.segue_links()
